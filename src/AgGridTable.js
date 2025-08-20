@@ -11,6 +11,7 @@ import { AllEnterpriseModule } from "ag-grid-enterprise";
 ModuleRegistry.registerModules([AllEnterpriseModule]);
 
 export const AgGridTable = () => {
+  const gridRef = useRef(null);
   const { visualizationSDK, visualizationData } = useContext(ExtensionContext40);
   const [rowData, setRowData] = useState([]);
   const [colDefs, setColDefs] = useState([]);
@@ -20,7 +21,6 @@ export const AgGridTable = () => {
 
   const configInitialized = useRef(false);
   const [gridTheme, setGridTheme] = useState('ag-theme-balham');
-
 
   const defaultColDef = useMemo(() => ({
     // sortable: true,
@@ -33,20 +33,31 @@ export const AgGridTable = () => {
 
   const autoGroupColumnDef = useMemo(() => ({
     minWidth: 200,
-    headerName: visualizationData?.visConfig?.groupingColumnName,
+    // headerName: visualizationData?.visConfig?.groupingColumnName,
   }), []);
 
+  useEffect(() => {
+    if (gridRef.current?.api && visualizationData?.visConfig?.groupingColumnName) {
+      const existingDef = gridRef.current.api.getGridOption('autoGroupColumnDef');
+      gridRef.current.api.setGridOption('autoGroupColumnDef', {
+        ...existingDef,
+        headerName: visualizationData.visConfig.groupingColumnName,
+      });
+    }
+  }, [visualizationData?.visConfig?.groupingColumnName]);
 
   useEffect(() => {
     if (visualizationSDK) {
-      if (!configInitialized.current) {
-        const visConfig = visualizationData?.visConfig;
+      const visConfig = visualizationData?.visConfig;
+      if (!configInitialized.current && visConfig) {
+        console.log(`visConfig: ${JSON.stringify(visConfig)}`)
         visualizationSDK.configureVisualization({
           groupingColumnName: {
             type: 'string',
             label: 'Grouping Column Name',
             placeholder: 'Enter a column name to group by',
           },
+
           theme: {
             type: 'string',
             display: 'select',
@@ -59,18 +70,17 @@ export const AgGridTable = () => {
           },
         });
         if (visConfig){
-          visualizationSDK.setVisConfig({"groupingColumn":visConfig?.groupingColumn,"theme":visConfig?.theme});
+          visualizationSDK.setVisConfig({"groupingColumnName":visConfig?.groupingColumnName,"theme":visConfig?.theme});
         }
         configInitialized.current = true;
       }
     }
-  }, [visualizationSDK]);
+  }, [visualizationSDK, visualizationData?.visConfig]);
 
   // useEffect(() => { 
   //   if (visualizationSDK && visualizationData?.visConfig) {
   //     const visConfig = visualizationData?.visConfig;
   //   }
-
   // },[visualizationData?.visConfig]);
 
   useEffect(() => {
@@ -94,7 +104,8 @@ export const AgGridTable = () => {
           headerName: field.label_short || field.label,
           field: field.name.replace(/\./g, '_'),
           rowGroup: isGrouping,
-          hide: isGrouping
+          hide: isGrouping,
+          // enableRowGroup: true,
         };
       });
 
@@ -123,10 +134,12 @@ export const AgGridTable = () => {
     <div style={containerStyle}>
       <div style={gridStyle} className={gridTheme}>
       <AgGridReact
+        ref={gridRef}
         rowData={rowData}
         columnDefs={colDefs}
         defaultColDef={defaultColDef}
         autoGroupColumnDef={autoGroupColumnDef}
+        // enableRowGroup={true}
         groupDisplayType={"singleColumn"}
         theme="legacy"
         groupTotalRow='bottom'
