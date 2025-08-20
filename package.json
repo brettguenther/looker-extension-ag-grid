@@ -26,6 +26,7 @@
     "@styled-icons/material-outlined": "10.34.0",
     "@styled-icons/material-rounded": "10.34.0",
     "ag-grid-community": "^34.1.1",
+    "ag-grid-enterprise": "^34.1.1",
     "ag-grid-react": "^34.1.1",
     "lodash": "^4.17.21",
     "react": "^17.0.0",
