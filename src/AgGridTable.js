@@ -101,7 +101,7 @@ export const AgGridTable = () => {
   useEffect(() => {
     if (visualizationData && visualizationData.queryResponse && visualizationData.visConfig) {
       const { queryResponse, visConfig } = visualizationData;
-      const { fields, data, subtotal_sets } = queryResponse;
+      const { fields, data, subtotal_sets, subtotals_data } = queryResponse;
 
       if (!fields || !data) {
         return;
@@ -123,19 +123,39 @@ export const AgGridTable = () => {
           hide: isGrouping,
         };
         if (!isGrouping) {
-          switch (measureHeaderNameType) {
-            case 'label':
-              colDef.headerName = field.label;
-              break;
-            default:
-              colDef.headerName = field.label_short || field.label;
-              break;
-          }
-          // colDef.aggFunc = 'count';
-          // colDef.enableValue = true;
+          colDef.aggFunc = 'count';
+          colDef.enableValue = true;
         }
         return colDef;
       });
+
+      const orderedGroupingFields = (subtotal_sets || [])[0] || [];
+      const subtotalsMap = new Map();
+      if (subtotals_data) {
+        const allSubtotals = Object.values(subtotals_data).flat();
+        allSubtotals.forEach(subtotalRow => {
+          const keyParts = [];
+          for (const fieldName of orderedGroupingFields) {
+            const cell = subtotalRow[fieldName];
+            if (cell && cell.value !== null) {
+              keyParts.push(cell.value);
+            } else {
+              break;
+            }
+          }
+
+          if (keyParts.length > 0) {
+            const key = keyParts.join('|');
+            const subtotalValues = {};
+            for (const cellName in subtotalRow) {
+              if (fields.measures.some(m => m.name === cellName)) {
+                subtotalValues[cellName.replace(/\./g, '_')] = subtotalRow[cellName].value;
+              }
+            }
+            subtotalsMap.set(key, subtotalValues);
+          }
+        });
+      }
 
       const measures = (fields.measures || []).map((field) => {
         let headerName;
@@ -147,12 +167,34 @@ export const AgGridTable = () => {
             headerName = field.label_short || field.label;
             break;
         }
-        return {
+        const colDef = {
           headerName,
           field: field.name.replace(/\./g, '_'),
-          aggFunc: field.type === 'average' ? 'avg' : field.type,
           enableValue: true,
         };
+
+        if (subtotalsMap.size > 0) {
+          colDef.aggFunc = params => {
+            if (params.rowNode.group) {
+              const keys = [];
+              let node = params.rowNode;
+              while (node && node.key !== null && typeof node.key !== 'undefined') {
+                keys.unshift(node.key);
+                node = node.parent;
+              }
+              const groupKey = keys.join('|');
+              const subtotalValues = subtotalsMap.get(groupKey);
+              const fieldName = field.name.replace(/\./g, '_');
+              if (subtotalValues && subtotalValues[fieldName] !== undefined) {
+                return subtotalValues[fieldName];
+              }
+            }
+            return null;
+          };
+        } else {
+          colDef.aggFunc = field.type === 'average' ? 'avg' : field.type;
+        }
+        return colDef;
       });
 
       const columnDefs = [...dimensions, ...measures];
