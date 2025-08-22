@@ -58,6 +58,17 @@ export const AgGridTable = () => {
             placeholder: 'Enter a column name to group by',
           },
 
+          measureHeaderName: {
+            type: 'string',
+            display: 'select',
+            label: 'Measure Header Name',
+            values: [
+              { 'Short Label': 'label_short' },
+              { 'Full Label': 'label' },
+            ],
+            default: 'label_short',
+          },
+
           theme: {
             type: 'string',
             display: 'select',
@@ -70,7 +81,11 @@ export const AgGridTable = () => {
           },
         });
         if (visConfig){
-          visualizationSDK.setVisConfig({"groupingColumnName":visConfig?.groupingColumnName,"theme":visConfig?.theme});
+          visualizationSDK.setVisConfig({
+            "groupingColumnName":visConfig?.groupingColumnName,
+            "measureHeaderName":visConfig?.measureHeaderName,
+            "theme":visConfig?.theme
+          });
         }
         configInitialized.current = true;
       }
@@ -94,6 +109,7 @@ export const AgGridTable = () => {
 
       const groupingColumnName = visConfig.groupingColumnName || '';
       const theme = visConfig.theme || 'ag-theme-balham';
+      const measureHeaderNameType = visConfig.measureHeaderName || 'label_short';
       setGridTheme(theme);
 
       const subtotalFields = new Set((subtotal_sets || []).flat());
@@ -109,12 +125,23 @@ export const AgGridTable = () => {
         };
       });
 
-      const measures = (fields.measures || []).map((field) => ({
-        headerName: field.label_short || field.label,
-        field: field.name.replace(/\./g, '_'),
-        aggFunc: field.type === 'average' ? 'avg' : field.type,
-        enableValue: true,
-      }));
+      const measures = (fields.measures || []).map((field) => {
+        let headerName;
+        switch (measureHeaderNameType) {
+          case 'label':
+            headerName = field.label;
+            break;
+          default:
+            headerName = field.label_short || field.label;
+            break;
+        }
+        return {
+          headerName,
+          field: field.name.replace(/\./g, '_'),
+          aggFunc: field.type === 'average' ? 'avg' : field.type,
+          enableValue: true,
+        };
+      });
 
       const columnDefs = [...dimensions, ...measures];
       setColDefs(columnDefs);
@@ -143,6 +170,7 @@ export const AgGridTable = () => {
         groupDisplayType={"singleColumn"}
         theme="legacy"
         groupTotalRow='bottom'
+        suppressAggFuncInHeader={true}
       ></AgGridReact>
       </div>
     </div>
