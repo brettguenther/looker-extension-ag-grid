@@ -116,13 +116,25 @@ export const AgGridTable = () => {
 
       const dimensions = (fields.dimensions || []).map((field) => {
         const isGrouping = subtotalFields.has(field.name);
-        return {
+        const colDef = {
           headerName: field.label_short || field.label,
           field: field.name.replace(/\./g, '_'),
           rowGroup: isGrouping,
           hide: isGrouping,
-          // enableRowGroup: true,
         };
+        if (!isGrouping) {
+          switch (measureHeaderNameType) {
+            case 'label':
+              colDef.headerName = field.label;
+              break;
+            default:
+              colDef.headerName = field.label_short || field.label;
+              break;
+          }
+          // colDef.aggFunc = 'count';
+          // colDef.enableValue = true;
+        }
+        return colDef;
       });
 
       const measures = (fields.measures || []).map((field) => {
@@ -146,13 +158,18 @@ export const AgGridTable = () => {
       const columnDefs = [...dimensions, ...measures];
       setColDefs(columnDefs);
 
-      const rowData = data.map((row) => {
-        const newRow = {};
-        for (const cell in row) {
-          newRow[cell.replace(/\./g, '_')] = row[cell].value;
-        }
-        return newRow;
-      });
+      const dimensionNames = (fields.dimensions || []).map(d => d.name);
+      const rowData = data
+        // .filter(row =>
+        //   dimensionNames.every(dimName => row[dimName] && row[dimName].value !== null)
+        // )
+        .map((row) => {
+          const newRow = {};
+          for (const cell in row) {
+            newRow[cell.replace(/\./g, '_')] = row[cell].value;
+          }
+          return newRow;
+        });
       setRowData(rowData);
     }
   }, [visualizationData]);
@@ -171,6 +188,7 @@ export const AgGridTable = () => {
         theme="legacy"
         groupTotalRow='bottom'
         suppressAggFuncInHeader={true}
+        groupAllowUnbalanced={true}
       ></AgGridReact>
       </div>
     </div>
